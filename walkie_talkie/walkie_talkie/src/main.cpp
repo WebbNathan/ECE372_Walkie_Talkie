@@ -4,6 +4,7 @@
 
 #include <timer.h>
 #include <adc.h>
+#include <pwm.h>
 
 volatile uint8_t in_sample_buffer[80]; //80/4000 ~ 20ms of audio
 volatile unsigned int in_sample_buffer_count = 0;
@@ -11,6 +12,7 @@ volatile unsigned int in_sample_buffer_count = 0;
 int main() {
 
   initTimer1();
+  initPWMTimer3();
   initADC();
 
   sei();
@@ -22,6 +24,8 @@ int main() {
       //Send Packet
       in_sample_buffer_count = 0;
     }
+
+    set_duty_cycle_from_sample(in_sample_buffer[in_sample_buffer_count]);
 
   }
 

@@ -4,7 +4,7 @@
 Timer 1 is setting the sample rate (currently 4kHz) of the ADC. Auto-Triggering set to Timer1 Output Compare
 */
 
-void initTimer1(){
+void initTimer1() {
 	//set Timer1 to CTC mode
     TCCR1A &= ~(1<<WGM10); 
     TCCR1A &= ~(1<<WGM11);  
