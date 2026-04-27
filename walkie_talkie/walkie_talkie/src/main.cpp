@@ -6,26 +6,52 @@
 #include <adc.h>
 #include <pwm.h>
 
-volatile uint8_t in_sample_buffer[80]; //80/4000 ~ 20ms of audio
-volatile unsigned int in_sample_buffer_count = 0;
+typedef enum button_debounce_state {
+  wait_press, 
+  debounce_press, 
+  wait_release, 
+  debounce_release
+} DebounceState;
+
+typedef enum RX_TX_state {
+  rx,
+  tx,
+} CommState;
+
+volatile uint8_t sample_buffer[10];
+volatile int buffer_front = 0;
+volatile int buffer_back = 0;
+volatile uint8_t last_sample;
+
+volatile DebounceState curr_button_state = wait_press;
+volatile CommState rx_tx_state = rx;
+volatile bool button_pressed = 0;
 
 int main() {
 
   initTimer1();
+  initTimer0();
   initPWMTimer3();
   initADC();
+
+  Serial.begin(9600);
 
   sei();
 
   //Main Loop
   while(1) {
 
-    if(in_sample_buffer_count >= 80) {
-      //Send Packet
-      in_sample_buffer_count = 0;
+    //Debounce state machine and RX_TX logic
+    if(curr_button_state == debounce_press) {
+      delayUs(50);
+      rx_tx_state = tx;
+      curr_button_state = wait_release;
     }
-
-    set_duty_cycle_from_sample(in_sample_buffer[in_sample_buffer_count]);
+    else if(curr_button_state == debounce_release) {
+      delayUs(50);
+      rx_tx_state = rx;
+      curr_button_state = wait_press;
+    }
 
   }
 
@@ -33,11 +59,28 @@ int main() {
 
 }
 
+//ADC ISR triggered when sample ready
 ISR(ADC_vect) {
 
-  //Only take bottom 8 bits (8 bit audio)
-  in_sample_buffer[in_sample_buffer_count] = ADCL;
-  in_sample_buffer_count += 1;
+  if(rx_tx_state == rx) {
+    uint8_t sample = ADCH;
+    sample_buffer[buffer_back] = sample;
+    buffer_back++;
+  }
 
 }
 
+//ISR for ADC timer, just used to reset flag
+ISR(TIMER1_COMPB_vect) {
+    //Empty ISR to reset flag
+}
+
+//Switch ISR
+ISR(INT0_vect) {
+  if(curr_button_state == wait_press) {
+    curr_button_state = debounce_press;
+  }
+  else if(curr_button_state == wait_release) {
+    curr_button_state = debounce_release;
+  }
+}

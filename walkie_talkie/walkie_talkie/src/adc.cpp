@@ -1,12 +1,22 @@
 #include <ADC.h>
 
 void initADC() {
+
+    ADMUX = 0;
+    ADCSRA = 0;
+    ADCSRB = 0;
+    DIDR0 = 0;
+
     ADMUX |= (1 << REFS0); //Set reference voltage to AVcc keeps MUX = 00000 (A0)
     ADMUX &= ~(1 << REFS1);
 
-    DIDR0 |= (1 << ADC7D); //Set pin A0 to analog input
+    ADMUX &= ~((1 << MUX0) | (1 << MUX1) | (1 << MUX2) |
+                (1 << MUX3) | (1 << MUX4)); 
+    ADCSRB &= ~(1 << MUX5); //Select single ended input on A0 
 
-    ADMUX &= ~(1 << ADLAR); //Right adjust result
+    DIDR0 |= (1 << ADC0D); //Set pin A0 to analog input
+
+    ADMUX |= (1 << ADLAR); //Left adjust result
 
     ADCSRB &= ~(1 << ADTS1);
     ADCSRB |= ((1 << ADTS0) | (1 << ADTS2)); //Trigger sampling on timer one compare match B
@@ -16,6 +26,7 @@ void initADC() {
     ADCSRA |= (1 << ADIE); //Enable interupt on ADC
 
     ADCSRA |= (1 << ADEN) | (1 << ADATE); //Enable ADC
+    ADCSRA |= (1 << ADIF); //Clear flag
     ADCSRA |= (1 << ADSC); //Start conversion
     
 }

@@ -9,6 +9,8 @@ void initPWMTimer3() {
     TCCR3B |= (1 << WGM32);
     TCCR3B &= ~(1 << WGM33);
 
+    TCCR3A |= (1 << COM3C1);
+
     //Set timer 3 prescaler to 1
     TCCR3B |= (1 << CS30);
     TCCR3B &= ~((1 << CS31) | (1 << CS32));
@@ -19,5 +21,6 @@ void initPWMTimer3() {
 }
 
 void set_duty_cycle_from_sample(uint8_t sample) {
-    OCR3C = (uint16_t)(sample);
+    OCR3C = sample;
+
 }
