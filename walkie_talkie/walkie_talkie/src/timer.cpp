@@ -21,7 +21,7 @@ void initTimer1() {
     TIMSK1 |= (1 << OCIE1B);
 
     OCR1A = 499;
-    OCR1B = 250;
+    OCR1B = 259;
 }
 
 void initTimer0() {

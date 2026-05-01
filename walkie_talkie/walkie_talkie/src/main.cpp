@@ -5,6 +5,14 @@
 #include <timer.h>
 #include <adc.h>
 #include <pwm.h>
+#include <dac.h>
+#include <i2c.h>
+
+#include <util/delay.h>
+
+#include <RFM69.h>
+#include <RFM69_ATC.h>
+#include <SPIFlash.h>
 
 typedef enum button_debounce_state {
   wait_press, 
@@ -27,12 +35,15 @@ volatile DebounceState curr_button_state = wait_press;
 volatile CommState rx_tx_state = rx;
 volatile bool button_pressed = 0;
 
+volatile bool sample_ready = 0;
+
 int main() {
 
   initTimer1();
   initTimer0();
   initPWMTimer3();
   initADC();
+  initI2C();
 
   Serial.begin(9600);
 
@@ -40,6 +51,12 @@ int main() {
 
   //Main Loop
   while(1) {
+
+    if (sample_ready) {
+        sample_ready = 0;
+        write_to_DAC(last_sample);
+        sample_ready = 0;
+    }
 
     //Debounce state machine and RX_TX logic
     if(curr_button_state == debounce_press) {
@@ -62,12 +79,8 @@ int main() {
 //ADC ISR triggered when sample ready
 ISR(ADC_vect) {
 
-  if(rx_tx_state == rx) {
-    uint8_t sample = ADCH;
-    sample_buffer[buffer_back] = sample;
-    buffer_back++;
-  }
-
+  last_sample = ADCH; //Load value from ADC
+  sample_ready = 1; //Sample flag
 }
 
 //ISR for ADC timer, just used to reset flag
