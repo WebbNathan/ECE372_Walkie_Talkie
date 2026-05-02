@@ -20,11 +20,11 @@ void initTimer1() {
 
     TIMSK1 |= (1 << OCIE1B);
 
-    //OCR1A = 499;
-    //OCR1B = 259;
+    OCR1A = 499;
+    OCR1B = 259;
 
-    OCR1A = 208;
-    OCR1B = 104;
+    //OCR1A = 208;
+    //OCR1B = 104;
     //Currently set to 16kHz sample rate
     //OCR1A = 124;
     //OCR1B = 62;

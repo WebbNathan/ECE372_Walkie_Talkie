@@ -12,7 +12,7 @@
 #include <util/delay.h>
 
 #define BUFFER_SIZE 256
-#define START_LEVEL 10
+#define START_LEVEL 80
 
 typedef enum button_debounce_state {
   wait_press, 
@@ -28,8 +28,8 @@ typedef enum RX_TX_state {
 
 volatile uint8_t sample_buffer[BUFFER_SIZE];
 volatile uint8_t last_sample;
-volatile int head_index;
-volatile int tail_index;
+volatile uint16_t head_index;
+volatile uint16_t tail_index;
 volatile bool buffer_empty_flag = 0;
 volatile bool write_to_dac_flag = 0;
 
@@ -37,14 +37,15 @@ volatile DebounceState curr_button_state = wait_press;
 volatile CommState rx_tx_state = rx;
 
 volatile bool sample_ready = 0;
-volatile int buffer_size = 0;
+volatile uint16_t buffer_size = 0;
 volatile bool ready_to_playback = 0;
 
 uint8_t pop_from_buffer() {
-  uint8_t data = sample_buffer[head_index];
   if(head_index == tail_index) {
       return 128; //Silence
   }
+
+  uint8_t data = sample_buffer[head_index];
   
   head_index = (head_index + 1) % BUFFER_SIZE;
   buffer_size--;
@@ -74,7 +75,7 @@ int main() {
 
   uint8_t data_from_buffer = 0;
 
-  Serial.begin(9600);
+  //Serial.begin(9600);
 
   sei();
 
@@ -111,17 +112,24 @@ int main() {
         ready_to_playback = 0;
         write_to_DAC(128);
       }
+      write_to_dac_flag = 0;
     }
 
     //Debounce state machine and RX_TX logic
     if(curr_button_state == debounce_press) {
       delayUs(50);
-      rx_tx_state = tx;
+      if(rx_tx_state == rx) {
+        rx_tx_state = tx;
+      }
+      else {
+        rx_tx_state = rx;
+      }
+      //rx_tx_state = tx;
       curr_button_state = wait_release;
     }
     else if(curr_button_state == debounce_release) {
       delayUs(50);
-      rx_tx_state = rx;
+      //rx_tx_state = rx;
       curr_button_state = wait_press;
     }
 
