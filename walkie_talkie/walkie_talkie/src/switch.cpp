@@ -1,7 +1,7 @@
 #include "switch.h"
 #include <avr/io.h>
 
-void initSwitchPD0(){
+void initSwitchPJ0(){
     
     //Enables data direction to input and turns pull up resistor
     DDRJ &= ~(1<<DDJ0);
