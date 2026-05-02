@@ -41,21 +41,13 @@ volatile bool sample_ready = 0;
 volatile uint8_t recieve_data = 0;
 volatile bool recieved_flag = 0;
 
-//RF24 radio(7, 8); // CE, CSN pins
-
 uint8_t pop_from_buffer() {
   uint8_t data = sample_buffer[head_index];
   if(head_index == tail_index) {
-    if(buffer_empty_flag) {
       return 128; //Silence
-    }
-
-    buffer_empty_flag = 1;
-    return data;
   }
+  
   head_index = (head_index + 1) % BUFFER_SIZE;
-  buffer_empty_flag = 0;
-
   return data;
 }
 
@@ -66,7 +58,7 @@ int append_to_buffer(uint8_t data) {
     return 1; //Overflow
   }
   
-  sample_buffer[new_tail] = data;
+  sample_buffer[tail_index] = data;
   tail_index = new_tail;
   return 0;
 }
@@ -80,10 +72,6 @@ int main() {
   init_USART();
 
   uint8_t data_from_buffer = 0;
-
-  //radio.begin();
-  //radio.setPALevel(RF24_PA_LOW);
-  //radio.setDataRate(RF24_1MBPS);
 
   Serial.begin(9600);
 
