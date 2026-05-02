@@ -9,4 +9,5 @@ void initSwitchPJ0(){
 
     //Enable PCINT9 interupt
     PCMSK1 |= (1 << PCINT9);
+    PCICR |= (1 << PCIE1);
 }

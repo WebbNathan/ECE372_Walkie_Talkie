@@ -35,7 +35,7 @@ volatile bool buffer_empty_flag = 0;
 volatile bool write_to_dac_flag = 0;
 
 volatile DebounceState curr_button_state = wait_press;
-volatile CommState rx_tx_state = tx;
+volatile CommState rx_tx_state = rx;
 
 volatile bool sample_ready = 0;
 volatile uint16_t buffer_size = 0;
@@ -77,7 +77,7 @@ int main() {
 
   uint8_t data_from_buffer = 0;
 
-  //Serial.begin(9600);
+  Serial.begin(9600);
 
   sei();
 
@@ -94,6 +94,7 @@ int main() {
 
     if(sample_ready) {
       if(rx_tx_state == tx) {
+        //Serial.print("Transmitting");
         usart_send_byte(last_sample);
       }
       sample_ready = 0;
