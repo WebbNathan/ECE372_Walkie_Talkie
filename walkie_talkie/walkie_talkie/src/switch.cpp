@@ -4,13 +4,9 @@
 void initSwitchPD0(){
     
     //Enables data direction to input and turns pull up resistor
-    DDRD &= ~(1<<DDD0);
-    PORTD |= (1<<PORTD0);
+    DDRJ &= ~(1<<DDJ0);
+    PORTJ |= (1<<PORTJ0);
 
-    //Set interupt to trigger on any logical change
-    EICRA |= (1 << ISC00);
-    EICRA &= ~(1 << ISC01);
-
-    //Enable INT0 interupt
-    EIMSK |= (1 << INT0);
+    //Enable PCINT9 interupt
+    PCMSK1 |= (1 << PCINT9);
 }
