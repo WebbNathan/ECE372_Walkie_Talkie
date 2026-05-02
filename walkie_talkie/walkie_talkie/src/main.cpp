@@ -94,7 +94,6 @@ int main() {
 
     if(sample_ready) {
       if(rx_tx_state == tx) {
-        //Serial.print("Transmitting");
         usart_send_byte(last_sample);
       }
       sample_ready = 0;
@@ -120,14 +119,25 @@ int main() {
 
     //Debounce state machine and RX_TX logic
     if(curr_button_state == debounce_press) {
-      delayUs(50);
-      rx_tx_state = tx;
-      curr_button_state = wait_release;
+      delayUs(10000);
+      if (!(PINJ & (1 << PINJ0))) {
+        rx_tx_state = tx;
+        curr_button_state = wait_release;
+      }
+      else {
+        curr_button_state = wait_press;
+      }
     }
     else if(curr_button_state == debounce_release) {
-      delayUs(50);
-      rx_tx_state = rx;
-      curr_button_state = wait_press;
+      delayUs(10000);
+
+      if((PINJ & (1 << PINJ0))) {
+        rx_tx_state = rx;
+        curr_button_state = wait_press;
+      }
+      else {
+        curr_button_state = wait_release;
+      }
     }
 
   }
