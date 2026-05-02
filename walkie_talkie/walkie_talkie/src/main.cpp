@@ -102,6 +102,7 @@ int main() {
     if(write_to_dac_flag) {
       if(rx_tx_state == rx) {
         data_from_buffer = pop_from_buffer();
+        write_to_DAC(data_from_buffer);
       }
       else {
         write_to_DAC(128); //Silence
