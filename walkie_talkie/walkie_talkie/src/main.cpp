@@ -12,7 +12,7 @@
 #include <util/delay.h>
 
 #define BUFFER_SIZE 256
-#define START_LEVEL 80
+#define START_LEVEL 10
 
 typedef enum button_debounce_state {
   wait_press, 
@@ -38,6 +38,7 @@ volatile CommState rx_tx_state = rx;
 
 volatile bool sample_ready = 0;
 volatile int buffer_size = 0;
+volatile bool ready_to_playback = 0;
 
 uint8_t pop_from_buffer() {
   uint8_t data = sample_buffer[head_index];
@@ -80,6 +81,14 @@ int main() {
   //Main Loop
   while(1) {
 
+    if(buffer_size > START_LEVEL) {
+      ready_to_playback = 1;
+    }
+
+    if(buffer_size == 0) {
+      ready_to_playback = 0;
+    }
+
     if(sample_ready) {
       if(rx_tx_state == tx) {
         usart_send_byte(last_sample);
@@ -88,14 +97,20 @@ int main() {
     }
 
     if(write_to_dac_flag) {
-      if(rx_tx_state == rx && buffer_size > START_LEVEL) {
-        data_from_buffer = pop_from_buffer();
-        write_to_DAC(data_from_buffer);
+      if (rx_tx_state == rx) {
+        if (!ready_to_playback) {
+          write_to_DAC(128); // silence while filling
+        }
+        else {
+          uint8_t data = pop_from_buffer();
+          write_to_DAC(data);
+        }
+
       }
       else {
-        write_to_DAC(128); //Silence
+        ready_to_playback = 0;
+        write_to_DAC(128);
       }
-      write_to_dac_flag = 0;
     }
 
     //Debounce state machine and RX_TX logic
