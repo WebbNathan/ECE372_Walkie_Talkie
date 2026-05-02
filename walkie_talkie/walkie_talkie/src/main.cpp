@@ -1,8 +1,6 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <Arduino.h>
-#include <SPI.h>
-#include <RF24.h>
 
 #include <timer.h>
 #include <adc.h>
@@ -13,7 +11,8 @@
 
 #include <util/delay.h>
 
-#define BUFFER_SIZE 32
+#define BUFFER_SIZE 256
+#define START_LEVEL 80
 
 typedef enum button_debounce_state {
   wait_press, 
@@ -38,8 +37,7 @@ volatile DebounceState curr_button_state = wait_press;
 volatile CommState rx_tx_state = rx;
 
 volatile bool sample_ready = 0;
-volatile uint8_t recieve_data = 0;
-volatile bool recieved_flag = 0;
+volatile int buffer_size = 0;
 
 uint8_t pop_from_buffer() {
   uint8_t data = sample_buffer[head_index];
@@ -48,6 +46,7 @@ uint8_t pop_from_buffer() {
   }
   
   head_index = (head_index + 1) % BUFFER_SIZE;
+  buffer_size--;
   return data;
 }
 
@@ -59,6 +58,7 @@ int append_to_buffer(uint8_t data) {
   }
   
   sample_buffer[tail_index] = data;
+  buffer_size++;
   tail_index = new_tail;
   return 0;
 }
@@ -88,7 +88,7 @@ int main() {
     }
 
     if(write_to_dac_flag) {
-      if(rx_tx_state == rx) {
+      if(rx_tx_state == rx && buffer_size > START_LEVEL) {
         data_from_buffer = pop_from_buffer();
         write_to_DAC(data_from_buffer);
       }
@@ -96,13 +96,6 @@ int main() {
         write_to_DAC(128); //Silence
       }
       write_to_dac_flag = 0;
-    }
-
-    if(recieved_flag) {
-      if(rx_tx_state == rx) {
-        append_to_buffer(last_sample);
-      }
-      recieved_flag = 0;
     }
 
     //Debounce state machine and RX_TX logic
@@ -145,6 +138,8 @@ ISR(PCINT1_vect) {
 }
 
 ISR(USART1_RX_vect) {
-    recieve_data = UDR1; //Get data
-    recieved_flag = 1; //Set flag to poll in main
+    uint8_t recieve_data = UDR1; //Get data
+    if(rx_tx_state == rx) {
+        append_to_buffer(recieve_data);
+    }
 }
