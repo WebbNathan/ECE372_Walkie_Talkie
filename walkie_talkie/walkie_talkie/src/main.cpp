@@ -4,16 +4,14 @@
 
 #include <timer.h>
 #include <adc.h>
-#include <pwm.h>
 #include <dac.h>
 #include <i2c.h>
 #include <usart.h>
 #include <switch.h>
 
-#include <util/delay.h>
-
-#define BUFFER_SIZE 256
-#define START_LEVEL 40
+#define BUFFER_SIZE 64
+#define START_LEVEL 10
+#define BUFFER_MASK (BUFFER_SIZE - 1) 
 
 typedef enum button_debounce_state {
   wait_press, 
@@ -29,8 +27,8 @@ typedef enum RX_TX_state {
 
 volatile uint8_t sample_buffer[BUFFER_SIZE];
 volatile uint8_t last_sample;
-volatile uint16_t head_index;
-volatile uint16_t tail_index;
+volatile uint8_t head_index;
+volatile uint8_t tail_index;
 volatile bool buffer_empty_flag = 0;
 volatile bool write_to_dac_flag = 0;
 
@@ -38,7 +36,6 @@ volatile DebounceState curr_button_state = wait_press;
 volatile CommState rx_tx_state = rx;
 
 volatile bool sample_ready = 0;
-volatile uint16_t buffer_size = 0;
 volatile bool ready_to_playback = 0;
 
 uint8_t pop_from_buffer() {
@@ -49,7 +46,6 @@ uint8_t pop_from_buffer() {
   uint8_t data = sample_buffer[head_index];
   
   head_index = (head_index + 1) % BUFFER_SIZE;
-  buffer_size--;
   return data;
 }
 
@@ -61,9 +57,12 @@ int append_to_buffer(uint8_t data) {
   }
   
   sample_buffer[tail_index] = data;
-  buffer_size++;
   tail_index = new_tail;
   return 0;
+}
+
+uint8_t get_buffer_size() {
+  return (tail_index - head_index) & BUFFER_MASK;
 }
 
 int main() {
@@ -77,13 +76,13 @@ int main() {
 
   uint8_t data_from_buffer = 0;
 
-  Serial.begin(9600);
-
   sei();
 
   //Main Loop
   while(1) {
 
+    uint8_t buffer_size = get_buffer_size();
+    
     if(buffer_size > START_LEVEL) {
       ready_to_playback = 1;
     }
