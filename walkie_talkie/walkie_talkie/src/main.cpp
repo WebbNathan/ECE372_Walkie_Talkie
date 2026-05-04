@@ -1,6 +1,5 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
-#include <Arduino.h>
 
 #include <timer.h>
 #include <adc.h>
@@ -8,19 +7,20 @@
 #include <i2c.h>
 #include <usart.h>
 #include <switch.h>
+#include <led.h>
 
-#define BUFFER_SIZE 64
-#define START_LEVEL 10
-#define BUFFER_MASK (BUFFER_SIZE - 1) 
+#define BUFFER_SIZE 64 //Sets max samples in buffer
+#define START_LEVEL 10 //Sets the min amount of samples in buffer to begin writing to DAC
+#define BUFFER_MASK (BUFFER_SIZE - 1) //Used for calulating the amount of samples in buffer
 
-typedef enum button_debounce_state {
+typedef enum button_debounce_state { //For switch debouncing
   wait_press, 
   debounce_press, 
   wait_release, 
   debounce_release
 } DebounceState;
 
-typedef enum RX_TX_state {
+typedef enum RX_TX_state { //Comm is half duplex with push-to-talk transmission
   rx,
   tx,
 } CommState;
@@ -29,30 +29,31 @@ volatile uint8_t sample_buffer[BUFFER_SIZE];
 volatile uint8_t last_sample;
 volatile uint8_t head_index;
 volatile uint8_t tail_index;
-volatile bool buffer_empty_flag = 0;
-volatile bool write_to_dac_flag = 0;
 
 volatile DebounceState curr_button_state = wait_press;
+volatile DebounceState curr_mute_button_state = wait_press;
 volatile CommState rx_tx_state = rx;
 
+volatile bool write_to_dac_flag = 0;
 volatile bool sample_ready = 0;
 volatile bool ready_to_playback = 0;
+volatile bool muted_flag = 0;
 
-uint8_t pop_from_buffer() {
-  if(head_index == tail_index) {
+uint8_t pop_from_buffer() { //Pop from ring buffer
+  if(head_index == tail_index) { //This implies buffer is empty
       return 128; //Silence
   }
 
   uint8_t data = sample_buffer[head_index];
   
-  head_index = (head_index + 1) % BUFFER_SIZE;
+  head_index = (head_index + 1) % BUFFER_SIZE; //Mod BUFFER_SIZE as this is a ring buffer and must be able to loop
   return data;
 }
 
 int append_to_buffer(uint8_t data) {
-  int new_tail = (tail_index + 1) % BUFFER_SIZE;
+  int new_tail = (tail_index + 1) % BUFFER_SIZE; //Ring buffer so mod BUFFER_SIZE
 
-  if(new_tail == head_index) {
+  if(new_tail == head_index) { //Implies an overflow so dont append anything
     return 1; //Overflow
   }
   
@@ -62,19 +63,22 @@ int append_to_buffer(uint8_t data) {
 }
 
 uint8_t get_buffer_size() {
-  return (tail_index - head_index) & BUFFER_MASK;
+  return (tail_index - head_index) & BUFFER_MASK; //Mask effectivley loops the diffrence mod BUFFER_SIZE
 }
 
 int main() {
 
+  //Module intilization
   initTimer1();
   initTimer0();
   initADC();
   initI2C();
-  init_USART();
+  initUSART();
   initSwitchPJ0();
+  initSwitchPK0();
+  initLEDPA0();
 
-  uint8_t data_from_buffer = 0;
+  led_off(); //Initialize LED to off
 
   sei();
 
@@ -83,11 +87,11 @@ int main() {
 
     uint8_t buffer_size = get_buffer_size();
     
-    if(buffer_size > START_LEVEL) {
+    if(buffer_size > START_LEVEL) { //Ensuring a min of START_LEVEL samples in buffer before writing
       ready_to_playback = 1;
     }
 
-    if(buffer_size == 0) {
+    if(buffer_size == 0) { //If no samples left then stop writing and continue refilling
       ready_to_playback = 0;
     }
 
@@ -95,17 +99,22 @@ int main() {
       if(rx_tx_state == tx) {
         usart_send_byte(last_sample);
       }
-      sample_ready = 0;
+      sample_ready = 0; //Reset flag
     }
 
-    if(write_to_dac_flag) {
-      if (rx_tx_state == rx) {
-        if (!ready_to_playback) {
+    if(write_to_dac_flag) { //Check if we are ready to write to DAC
+      if (rx_tx_state == rx) { //Make sure we are recieving
+        if (!ready_to_playback) { //If buffer is not full enough just write silence
           write_to_DAC(128); // silence while filling
         }
         else {
-          uint8_t data = pop_from_buffer();
-          write_to_DAC(data);
+          uint8_t data = pop_from_buffer(); //Pop a sample from buffer
+          if(~muted_flag) {
+            write_to_DAC(data); //Write data if not muteed
+          }
+          else {
+            write_to_DAC(128); //Write silence if muted
+          }
         }
 
       }
@@ -121,6 +130,7 @@ int main() {
       delayUs(10000);
       if (!(PINJ & (1 << PINJ0))) {
         rx_tx_state = tx;
+        led_on(); //Turn on transmit LED
         curr_button_state = wait_release;
       }
       else {
@@ -129,9 +139,9 @@ int main() {
     }
     else if(curr_button_state == debounce_release) {
       delayUs(10000);
-
       if((PINJ & (1 << PINJ0))) {
         rx_tx_state = rx;
+        led_off(); //Turn off transmit LED
         curr_button_state = wait_press;
       }
       else {
@@ -139,10 +149,20 @@ int main() {
       }
     }
 
+    //Debounce state machine for mute button
+    if(curr_mute_button_state == debounce_press) {
+      delayUs(10000);
+      curr_mute_button_state = wait_release;
+    }
+    else if(curr_mute_button_state = debounce_release) {
+      delayUs(10000);
+      muted_flag = ~muted_flag;
+      curr_mute_button_state = wait_press;
+    }
+
   }
-
+  
   return 0;
-
 }
 
 //ADC ISR triggered when sample ready
@@ -151,18 +171,30 @@ ISR(ADC_vect) {
   sample_ready = 1; //Sample flag
 }
 
-//ISR for ADC timer, just used to reset flag
+//ISR for ADC timer, just used to reset flag and set a flag that indicates ready to write to DAC
 ISR(TIMER1_COMPB_vect) {
   write_to_dac_flag = 1;
 }
 
-//Switch ISR
+//Push-to-talk ISR
 ISR(PCINT1_vect) {
+  //Debouncing logic
   if(curr_button_state == wait_press) {
     curr_button_state = debounce_press;
   }
   else if(curr_button_state == wait_release) {
     curr_button_state = debounce_release;
+  }
+}
+
+//Muted button ISR
+ISR(PCINT2_vect) {
+  //Debounding logic
+  if(curr_mute_button_state == wait_press) {
+    curr_mute_button_state = debounce_press;
+  }
+  else if(curr_mute_button_state == wait_release) {
+    curr_mute_button_state = debounce_release;
   }
 }
 

@@ -3,7 +3,7 @@
 
 #include <avr/io.h>
 
-void init_USART();
+void initUSART();
 void usart_send_byte(uint8_t data);
 
 #endif

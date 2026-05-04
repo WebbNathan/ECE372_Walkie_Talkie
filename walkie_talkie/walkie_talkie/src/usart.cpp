@@ -1,6 +1,6 @@
 #include <usart.h>
 
-void init_USART() {
+void initUSART() {
     UCSR1A |= (1 << U2X1);   // double speed mode
     UBRR1H = 0;
     UBRR1L = 16;             // 115200 baud at 16 MHz with U2X = 1  
