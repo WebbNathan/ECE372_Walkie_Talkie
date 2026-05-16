@@ -6,8 +6,8 @@ void initLEDPA0() {
 }
 
 void led_on(){
-    PORTA |= (1 << PORTA0);
+    PORTA |= (1 << PORTA0); //Set LED logic to one (turns on LED)
 }
 void led_off(){
-    PORTA &=~(1 << PORTA0);
+    PORTA &=~(1 << PORTA0); //Set LED logic to zero
 }

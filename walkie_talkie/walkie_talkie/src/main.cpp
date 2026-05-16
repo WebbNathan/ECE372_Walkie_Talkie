@@ -57,8 +57,8 @@ int append_to_buffer(uint8_t data) {
     return 1; //Overflow
   }
   
-  sample_buffer[tail_index] = data;
-  tail_index = new_tail;
+  sample_buffer[tail_index] = data; //Append data
+  tail_index = new_tail; //Set new tail
   return 0;
 }
 
@@ -95,9 +95,9 @@ int main() {
       ready_to_playback = 0;
     }
 
-    if(sample_ready) {
-      if(rx_tx_state == tx) {
-        usart_send_byte(last_sample);
+    if(sample_ready) { //Sample ready set in ADC ISR
+      if(rx_tx_state == tx) { //Make sure we are in transmitting state
+        usart_send_byte(last_sample); //Send sample to radio module
       }
       sample_ready = 0; //Reset flag
     }
@@ -109,7 +109,7 @@ int main() {
         }
         else {
           uint8_t data = pop_from_buffer(); //Pop a sample from buffer
-          if(~muted_flag) {
+          if(!muted_flag) { //Set by mute button
             write_to_DAC(data); //Write data if not muteed
           }
           else {
@@ -128,7 +128,7 @@ int main() {
     //Debounce state machine and RX_TX logic
     if(curr_button_state == debounce_press) {
       delayUs(10000);
-      if (!(PINJ & (1 << PINJ0))) {
+      if (!(PINJ & (1 << PINJ0))) { //
         rx_tx_state = tx;
         led_on(); //Turn on transmit LED
         curr_button_state = wait_release;
@@ -138,8 +138,8 @@ int main() {
       }
     }
     else if(curr_button_state == debounce_release) {
-      delayUs(10000);
-      if((PINJ & (1 << PINJ0))) {
+      delayUs(10000); //Debounce delay
+      if((PINJ & (1 << PINJ0))) { //Making sure the button was lifted
         rx_tx_state = rx;
         led_off(); //Turn off transmit LED
         curr_button_state = wait_press;
@@ -154,14 +154,14 @@ int main() {
       delayUs(10000);
       curr_mute_button_state = wait_release;
     }
-    else if(curr_mute_button_state = debounce_release) {
+    else if(curr_mute_button_state == debounce_release) {
       delayUs(10000);
-      muted_flag = ~muted_flag;
+      muted_flag = !muted_flag;
       curr_mute_button_state = wait_press;
     }
 
   }
-  
+
   return 0;
 }
 
@@ -200,7 +200,7 @@ ISR(PCINT2_vect) {
 
 ISR(USART1_RX_vect) {
     uint8_t recieve_data = UDR1; //Get data
-    if(rx_tx_state == rx) {
+    if(rx_tx_state == rx) { //Only write signals if we are receiving
         append_to_buffer(recieve_data);
     }
 }

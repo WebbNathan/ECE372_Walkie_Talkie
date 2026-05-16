@@ -16,10 +16,13 @@ void initTimer1() {
     TCCR1B |= (1<<CS11);
     TCCR1B &= ~(1<<CS12);
 
+    //Reset count
     TCNT1 = 0;
 
+    //Mask ISR
     TIMSK1 |= (1 << OCIE1B);
 
+    //Set frequency to 4.8kHz
     OCR1A = 499;
     OCR1B = 259;
 
